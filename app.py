@@ -70,10 +70,13 @@ def make_sidebar_link(icon, label, href):
 
 # Protection des routes : redirection vers /login si non connecte
 from flask import redirect, request
+import bcrypt
+from database import SessionLocal
+from models import User
 
 @server.before_request
 def require_login():
-    allowed = ["/login", "/logout", "/_dash", "/assets", "/_reload-hash", "/_favicon.ico"]
+    allowed = ["/login", "/logout", "/auth/login", "/_dash", "/assets", "/_reload-hash", "/_favicon.ico"]
     path = request.path
     if any(path.startswith(a) for a in allowed):
         return
@@ -82,6 +85,35 @@ def require_login():
     # Protection page admin
     if path == "/admin" and flask_session.get("user_role") != "admin":
         return redirect("/")
+
+
+# Route de login (formulaire POST classique)
+@server.route("/auth/login", methods=["POST"])
+def auth_login():
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+
+    if not email or not password:
+        return redirect("/login")
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(email=email).first()
+        if not user:
+            return redirect("/login")
+
+        if not bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
+            return redirect("/login")
+
+        flask_session["user_id"] = user.id
+        flask_session["user_email"] = user.email
+        flask_session["user_role"] = user.role
+        flask_session["user_nom"] = f"{user.prenom} {user.nom}"
+        flask_session["teacher_id"] = user.teacher_id
+
+        return redirect("/")
+    finally:
+        db.close()
 
 
 # Route de deconnexion
