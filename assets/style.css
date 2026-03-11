@@ -197,9 +197,15 @@ body {
 /* Active nav detection via URL highlight */
 .nav-item[aria-current="true"] .nav-item-inner,
 .nav-item.active .nav-item-inner {
-    background-color: var(--bg-hover);
-    color: var(--text-primary);
-    font-weight: 500;
+    background-color: var(--accent-blue);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(35, 131, 226, 0.3);
+}
+
+.nav-item[aria-current="true"] .nav-item-inner .nav-icon,
+.nav-item.active .nav-item-inner .nav-icon {
+    color: #ffffff;
 }
 
 /* SVG icons in nav */
@@ -844,6 +850,71 @@ input::placeholder {
 .rank-score {
     font-size: 14px;
     font-weight: 600;
+}
+
+/* ============================================
+   Login Page
+   ============================================ */
+
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+}
+
+.login-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: var(--shadow-md);
+}
+
+.login-card .brand-icon-wrap {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+}
+
+/* User bar in sidebar */
+.user-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+}
+
+.logout-link {
+    font-size: 12px;
+    color: var(--accent-red) !important;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.logout-link:hover {
+    text-decoration: underline;
+}
+
+.role-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--tag-blue-bg);
+    color: var(--accent-blue);
+    margin-top: 2px;
 }
 
 /* ============================================

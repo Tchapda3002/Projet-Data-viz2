@@ -3,16 +3,21 @@ from dash import html, dcc, callback, Input, Output, State, dash_table, no_updat
 import dash_bootstrap_components as dbc
 from datetime import date
 
+from sqlalchemy.orm import joinedload
+
 from database import SessionLocal
 from models import Course, Session, Student, Attendance
 
 dash.register_page(__name__, path="/seances", name="Seances & Presences")
 
 
-def get_courses_options():
+def get_courses_options(teacher_id=None):
     db = SessionLocal()
     try:
-        courses = db.query(Course).all()
+        query = db.query(Course)
+        if teacher_id:
+            query = query.filter(Course.teacher_id == teacher_id)
+        courses = query.all()
         return [{"label": f"{c.code} - {c.libelle}", "value": c.code} for c in courses]
     finally:
         db.close()
@@ -21,14 +26,17 @@ def get_courses_options():
 def get_sessions(course_code=None):
     db = SessionLocal()
     try:
-        query = db.query(Session)
+        query = db.query(Session).options(
+            joinedload(Session.course),
+            joinedload(Session.attendances),
+        )
         if course_code:
             query = query.filter_by(course_code=course_code)
         sessions = query.order_by(Session.date.desc()).all()
+        nb_total = db.query(Student).count()
         data = []
         for s in sessions:
             nb_presents = len(s.attendances)
-            nb_total = db.query(Student).count()
             data.append({
                 "ID": s.id,
                 "Cours": f"{s.course.code} - {s.course.libelle}",
@@ -112,9 +120,10 @@ layout = html.Div([
     Output("seance-course", "options"),
     Output("filter-course", "options"),
     Input("seance-alert", "children"),
+    Input("user-teacher-id", "data"),
 )
-def load_course_options(_):
-    options = get_courses_options()
+def load_course_options(_, teacher_id):
+    options = get_courses_options(teacher_id)
     return options, options
 
 

@@ -11,11 +11,13 @@ from models import Student, Course, Session, Attendance, Grade, Teacher
 dash.register_page(__name__, path="/", name="Tableau de bord")
 
 
-def get_dashboard_data(course_filter=None):
+def get_dashboard_data(course_filter=None, teacher_id=None):
     db = SessionLocal()
     try:
         # Filtrage
         courses_query = db.query(Course)
+        if teacher_id:
+            courses_query = courses_query.filter(Course.teacher_id == teacher_id)
         if course_filter:
             courses_query = courses_query.filter(Course.code == course_filter)
         courses = courses_query.all()
@@ -127,10 +129,13 @@ def get_dashboard_data(course_filter=None):
         db.close()
 
 
-def get_courses_options():
+def get_courses_options(teacher_id=None):
     db = SessionLocal()
     try:
-        courses = db.query(Course).all()
+        query = db.query(Course)
+        if teacher_id:
+            query = query.filter(Course.teacher_id == teacher_id)
+        courses = query.all()
         return [{"label": f"{c.code} - {c.libelle}", "value": c.code} for c in courses]
     finally:
         db.close()
@@ -239,9 +244,10 @@ layout = html.Div([
 @callback(
     Output("dash-filter-course", "options"),
     Input("dash-filter-course", "value"),
+    Input("user-teacher-id", "data"),
 )
-def load_options(_):
-    return get_courses_options()
+def load_options(_, teacher_id):
+    return get_courses_options(teacher_id)
 
 
 @callback(
@@ -255,9 +261,10 @@ def load_options(_):
     Output("top-assidus", "children"),
     Output("bottom-assidus", "children"),
     Input("dash-filter-course", "value"),
+    Input("user-teacher-id", "data"),
 )
-def update_dashboard(course_filter):
-    data = get_dashboard_data(course_filter)
+def update_dashboard(course_filter, teacher_id):
+    data = get_dashboard_data(course_filter, teacher_id)
 
     empty_fig = go.Figure()
     empty_fig.update_layout(template="simple_white", height=300,

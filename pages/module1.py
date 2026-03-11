@@ -3,16 +3,24 @@ from dash import html, dcc, callback, Input, Output, State, dash_table, no_updat
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
+from sqlalchemy.orm import joinedload
+
 from database import SessionLocal
 from models import Course, Session, Teacher
 
 dash.register_page(__name__, path="/cours", name="Cours")
 
 
-def get_courses():
+def get_courses(teacher_id=None):
     db = SessionLocal()
     try:
-        courses = db.query(Course).all()
+        query = db.query(Course).options(
+            joinedload(Course.sessions),
+            joinedload(Course.teacher),
+        )
+        if teacher_id:
+            query = query.filter(Course.teacher_id == teacher_id)
+        courses = query.all()
         data = []
         for c in courses:
             heures_effectuees = sum(s.duree for s in c.sessions)
@@ -43,58 +51,69 @@ def get_teachers_options():
 
 # --- Layout ---
 
-layout = html.Div([
-    html.H1("Gestion des Cours"),
+def layout():
+    return html.Div([
+        html.H1("Gestion des Cours"),
 
-    # Formulaire ajout
-    html.Div([
-        html.H3("Ajouter un cours"),
-        dbc.Row([
-            dbc.Col([
-                dbc.Label("Code"),
-                dbc.Input(id="input-code", placeholder="ex: MATH101"),
-            ], width=3),
-            dbc.Col([
-                dbc.Label("Libelle"),
-                dbc.Input(id="input-libelle", placeholder="Nom du cours"),
-            ], width=4),
-            dbc.Col([
-                dbc.Label("Volume horaire"),
-                dbc.Input(id="input-volume", type="number", placeholder="20"),
-            ], width=2),
-            dbc.Col([
-                dbc.Label("Credits"),
-                dbc.Input(id="input-credits", type="number", placeholder="1.5"),
-            ], width=1),
-            dbc.Col([
-                dbc.Label("Enseignant"),
-                dcc.Dropdown(id="input-teacher", placeholder="Choisir..."),
-            ], width=2),
-        ], className="mb-3"),
-        dbc.Row([
-            dbc.Col([
-                dbc.Button("Ajouter", id="btn-add-course", color="dark", className="me-2"),
-                dbc.Button("Supprimer la selection", id="btn-del-course", color="danger", outline=True),
+        # Formulaire ajout (admin only) - hidden inputs for callback stability
+        html.Div([
+            html.H3("Ajouter un cours"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Code"),
+                    dbc.Input(id="input-code", placeholder="ex: MATH101"),
+                ], width=3),
+                dbc.Col([
+                    dbc.Label("Libelle"),
+                    dbc.Input(id="input-libelle", placeholder="Nom du cours"),
+                ], width=4),
+                dbc.Col([
+                    dbc.Label("Volume horaire"),
+                    dbc.Input(id="input-volume", type="number", placeholder="20"),
+                ], width=2),
+                dbc.Col([
+                    dbc.Label("Credits"),
+                    dbc.Input(id="input-credits", type="number", placeholder="1.5"),
+                ], width=1),
+                dbc.Col([
+                    dbc.Label("Enseignant"),
+                    dcc.Dropdown(id="input-teacher", placeholder="Choisir..."),
+                ], width=2),
+            ], className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button("Ajouter", id="btn-add-course", color="dark", className="me-2"),
+                    dbc.Button("Supprimer la selection", id="btn-del-course", color="danger", outline=True),
+                ]),
             ]),
-        ]),
-        html.Div(id="course-alert", className="mt-2"),
-    ], className="mb-4"),
+            html.Div(id="course-alert", className="mt-2"),
+        ], id="course-admin-form", className="mb-4"),
 
-    html.Hr(),
+        html.Hr(),
 
-    # Tableau des cours
-    html.H3("Liste des cours"),
-    html.Div(id="courses-table"),
+        # Tableau des cours
+        html.H3("Liste des cours"),
+        html.Div(id="courses-table"),
 
-    html.Hr(),
+        html.Hr(),
 
-    # Barres de progression
-    html.H3("Progression des cours"),
-    dcc.Graph(id="progress-chart"),
-])
+        # Barres de progression
+        html.H3("Progression des cours"),
+        dcc.Graph(id="progress-chart"),
+    ])
 
 
 # --- Callbacks ---
+
+@callback(
+    Output("course-admin-form", "style"),
+    Input("user-role", "data"),
+)
+def toggle_course_form(role):
+    if role == "admin":
+        return {}
+    return {"display": "none"}
+
 
 @callback(
     Output("input-teacher", "options"),
@@ -108,9 +127,10 @@ def load_teachers(_):
     Output("courses-table", "children"),
     Output("progress-chart", "figure"),
     Input("course-alert", "children"),
+    Input("user-teacher-id", "data"),
 )
-def refresh_courses(_):
-    data = get_courses()
+def refresh_courses(_, teacher_id):
+    data = get_courses(teacher_id)
     if not data:
         empty_fig = go.Figure()
         empty_fig.update_layout(template="simple_white")
@@ -202,7 +222,10 @@ def manage_course(add_clicks, del_clicks, code, libelle, volume, credits, teache
                 return dbc.Alert("Selectionnez un cours a supprimer.", color="warning", duration=3000)
 
             code_to_del = table_data[selected_rows[0]]["Code"]
-            course = db.query(Course).filter_by(code=code_to_del).first()
+            course = db.query(Course).options(
+                joinedload(Course.sessions).joinedload(Session.attendances),
+                joinedload(Course.grades),
+            ).filter_by(code=code_to_del).first()
             if course:
                 for session in course.sessions:
                     for att in session.attendances:

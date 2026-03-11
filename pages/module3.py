@@ -6,6 +6,8 @@ import pandas as pd
 import io
 import base64
 
+from sqlalchemy.orm import joinedload, subqueryload
+
 from database import SessionLocal
 from models import Student, Course, Grade, Attendance, Session
 
@@ -15,7 +17,10 @@ dash.register_page(__name__, path="/etudiants", name="Etudiants & Notes")
 def get_students_summary():
     db = SessionLocal()
     try:
-        students = db.query(Student).order_by(Student.nom).all()
+        students = db.query(Student).options(
+            subqueryload(Student.grades).joinedload(Grade.course),
+            subqueryload(Student.attendances),
+        ).order_by(Student.nom).all()
         total_sessions = db.query(Session).count()
         data = []
         for s in students:
@@ -47,7 +52,10 @@ def get_students_summary():
 def get_student_detail(student_id):
     db = SessionLocal()
     try:
-        student = db.query(Student).filter_by(id=student_id).first()
+        student = db.query(Student).options(
+            subqueryload(Student.grades).joinedload(Grade.course),
+            subqueryload(Student.attendances),
+        ).filter_by(id=student_id).first()
         if not student:
             return None, [], []
 
@@ -77,10 +85,13 @@ def get_student_detail(student_id):
         db.close()
 
 
-def get_courses_options():
+def get_courses_options(teacher_id=None):
     db = SessionLocal()
     try:
-        courses = db.query(Course).all()
+        query = db.query(Course)
+        if teacher_id:
+            query = query.filter(Course.teacher_id == teacher_id)
+        courses = query.all()
         return [{"label": f"{c.code} - {c.libelle}", "value": c.code} for c in courses]
     finally:
         db.close()
@@ -88,57 +99,153 @@ def get_courses_options():
 
 # --- Layout ---
 
-layout = html.Div([
-    html.H1("Etudiants & Notes"),
+def layout():
+    return html.Div([
+        html.H1("Etudiants & Notes"),
 
-    # Tableau etudiants
-    html.H3("Liste des etudiants"),
-    html.Div(id="students-table"),
+        # Formulaire CRUD etudiant (admin only)
+        html.Div([
+            html.H3("Gerer les etudiants"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Nom"),
+                    dbc.Input(id="input-stu-nom", placeholder="Nom"),
+                ], width=3),
+                dbc.Col([
+                    dbc.Label("Prenom"),
+                    dbc.Input(id="input-stu-prenom", placeholder="Prenom"),
+                ], width=3),
+                dbc.Col([
+                    dbc.Label("Email"),
+                    dbc.Input(id="input-stu-email", placeholder="email@example.com", type="email"),
+                ], width=3),
+                dbc.Col([
+                    dbc.Label("Date de naissance"),
+                    dbc.Input(id="input-stu-dob", type="date"),
+                ], width=3),
+            ], className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button("Ajouter l'etudiant", id="btn-add-student", color="dark", className="me-2"),
+                    dbc.Button("Supprimer la selection", id="btn-del-student", color="danger", outline=True),
+                ]),
+            ]),
+            html.Div(id="student-crud-alert", className="mt-2"),
+        ], id="student-admin-form", className="mb-4"),
 
-    html.Hr(),
+        html.Hr(),
 
-    # Fiche etudiant
-    html.H3("Fiche etudiant"),
-    html.P("Selectionnez un etudiant dans le tableau ci-dessus.", id="student-hint",
-           style={"color": "#73726e"}),
-    html.Div(id="student-detail"),
+        # Tableau etudiants
+        html.H3("Liste des etudiants"),
+        html.Div(id="students-table"),
 
-    html.Hr(),
+        html.Hr(),
 
-    # Workflow Notes-Excel
-    html.H3("Gestion des notes par Excel"),
-    dbc.Row([
-        dbc.Col([
-            html.H5("1. Telecharger le template"),
-            dcc.Dropdown(id="template-course", placeholder="Choisir un cours..."),
-            dbc.Button("Telecharger le template", id="btn-download-template",
-                       color="dark", className="mt-2"),
-            dcc.Download(id="download-template"),
-        ], width=5),
-        dbc.Col([
-            html.H5("3. Uploader les notes"),
-            dcc.Upload(
-                id="upload-notes",
-                children=html.Div(["Glisser-deposer ou ", html.A("parcourir")]),
-                style={
-                    "borderWidth": "1px", "borderStyle": "dashed", "borderColor": "#e8e8e4",
-                    "borderRadius": "4px", "textAlign": "center", "padding": "20px",
-                    "cursor": "pointer", "backgroundColor": "#fbfbfa",
-                },
-            ),
-            html.Div(id="upload-alert", className="mt-2"),
-        ], width=5),
-    ]),
-])
+        # Fiche etudiant
+        html.H3("Fiche etudiant"),
+        html.P("Selectionnez un etudiant dans le tableau ci-dessus.", id="student-hint",
+               style={"color": "#73726e"}),
+        html.Div(id="student-detail"),
+
+        html.Hr(),
+
+        # Workflow Notes-Excel
+        html.H3("Gestion des notes par Excel"),
+        dbc.Row([
+            dbc.Col([
+                html.H5("1. Telecharger le template"),
+                dcc.Dropdown(id="template-course", placeholder="Choisir un cours..."),
+                dbc.Button("Telecharger le template", id="btn-download-template",
+                           color="dark", className="mt-2"),
+                dcc.Download(id="download-template"),
+            ], width=5),
+            dbc.Col([
+                html.H5("3. Uploader les notes"),
+                dcc.Upload(
+                    id="upload-notes",
+                    children=html.Div(["Glisser-deposer ou ", html.A("parcourir")]),
+                    style={
+                        "borderWidth": "1px", "borderStyle": "dashed", "borderColor": "#e8e8e4",
+                        "borderRadius": "4px", "textAlign": "center", "padding": "20px",
+                        "cursor": "pointer", "backgroundColor": "#fbfbfa",
+                    },
+                ),
+                html.Div(id="upload-alert", className="mt-2"),
+            ], width=5),
+        ]),
+    ])
 
 
 # --- Callbacks ---
 
 @callback(
+    Output("student-admin-form", "style"),
+    Input("user-role", "data"),
+)
+def toggle_student_form(role):
+    if role == "admin":
+        return {}
+    return {"display": "none"}
+
+
+@callback(
+    Output("student-crud-alert", "children"),
+    Input("btn-add-student", "n_clicks"),
+    Input("btn-del-student", "n_clicks"),
+    State("input-stu-nom", "value"),
+    State("input-stu-prenom", "value"),
+    State("input-stu-email", "value"),
+    State("input-stu-dob", "value"),
+    State("student-datatable", "selected_rows"),
+    State("student-datatable", "data"),
+    prevent_initial_call=True,
+)
+def manage_student(add_clicks, del_clicks, nom, prenom, email, dob, selected_rows, table_data):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return no_update
+
+    trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+    db = SessionLocal()
+
+    try:
+        if trigger == "btn-add-student":
+            if not all([nom, prenom, email]):
+                return dbc.Alert("Nom, prenom et email sont requis.", color="warning", duration=3000)
+            existing = db.query(Student).filter_by(email=email).first()
+            if existing:
+                return dbc.Alert(f"L'email '{email}' existe deja.", color="danger", duration=3000)
+            student = Student(nom=nom, prenom=prenom, email=email, date_naissance=dob)
+            db.add(student)
+            db.commit()
+            return dbc.Alert(f"Etudiant '{prenom} {nom}' ajoute.", color="success", duration=3000)
+
+        elif trigger == "btn-del-student":
+            if not selected_rows:
+                return dbc.Alert("Selectionnez un etudiant a supprimer.", color="warning", duration=3000)
+            student_id = table_data[selected_rows[0]]["ID"]
+            student = db.query(Student).filter_by(id=student_id).first()
+            if student:
+                db.query(Grade).filter_by(student_id=student_id).delete()
+                db.query(Attendance).filter_by(student_id=student_id).delete()
+                db.delete(student)
+                db.commit()
+                return dbc.Alert(f"Etudiant supprime.", color="info", duration=3000)
+    except Exception as e:
+        db.rollback()
+        return dbc.Alert(f"Erreur : {e}", color="danger", duration=5000)
+    finally:
+        db.close()
+
+    return no_update
+
+
+@callback(
     Output("students-table", "children"),
     Input("upload-alert", "children"),
+    Input("student-crud-alert", "children"),
 )
-def refresh_students(_):
+def refresh_students(_, __):
     data = get_students_summary()
     if not data:
         return html.P("Aucun etudiant.")
@@ -237,15 +344,23 @@ def show_detail(selected_rows, table_data):
     else:
         chart = html.P("Aucune note.")
 
-    return html.Div([card, chart]), {"display": "none"}
+    # Bouton export PDF
+    btn_pdf = html.A(
+        dbc.Button("Exporter le bulletin PDF", color="dark", className="mt-3"),
+        href=f"/api/bulletin/{student_id}",
+        target="_blank",
+    )
+
+    return html.Div([card, chart, btn_pdf]), {"display": "none"}
 
 
 @callback(
     Output("template-course", "options"),
     Input("students-table", "children"),
+    Input("user-teacher-id", "data"),
 )
-def load_template_options(_):
-    return get_courses_options()
+def load_template_options(_, teacher_id):
+    return get_courses_options(teacher_id)
 
 
 @callback(

@@ -16,7 +16,7 @@ def create_flux_diagram():
         {"x": 0.5, "y": 0.65, "text": "Dash<br>(Frontend)", "color": "#e3f2fd"},
         {"x": 0.5, "y": 0.45, "text": "Flask / API<br>(Backend)", "color": "#fff3e0"},
         {"x": 0.5, "y": 0.25, "text": "SQLAlchemy<br>(ORM)", "color": "#f3e5f5"},
-        {"x": 0.5, "y": 0.05, "text": "PostgreSQL<br>(Supabase)", "color": "#e8f5e9"},
+        {"x": 0.5, "y": 0.05, "text": "PostgreSQL<br>(Railway)", "color": "#e8f5e9"},
     ]
 
     for box in boxes:

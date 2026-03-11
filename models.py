@@ -12,6 +12,7 @@ class User(Base):
     role = Column(String, nullable=False)  # "admin" ou "enseignant"
     nom = Column(String, nullable=False)
     prenom = Column(String, nullable=False)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
 
 
 class Teacher(Base):
