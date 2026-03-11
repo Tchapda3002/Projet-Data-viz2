@@ -98,6 +98,8 @@ def serve_layout():
     if not logged_in:
         return html.Div([
             dcc.Location(id="url", refresh=True),
+            dcc.Store(id="user-role", data=None),
+            dcc.Store(id="user-teacher-id", data=None),
             dash.page_container,
         ])
 
