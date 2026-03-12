@@ -87,6 +87,42 @@ def require_login():
         return redirect("/")
 
 
+# Page de login (HTML pur, pas de Dash)
+@server.route("/login")
+def login_page():
+    return """<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SGA - Connexion</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+body{font-family:'DM Sans',sans-serif;background:#f7f6f3;margin:0;display:flex;
+align-items:center;justify-content:center;min-height:100vh;color:#37352f}
+.login-card{background:#fff;padding:48px 40px;border-radius:8px;
+border:1px solid #e8e8e4;max-width:380px;width:100%;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.brand-icon{width:44px;height:44px;background:#37352f;color:#fff;border-radius:8px;
+display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:20px}
+.form-control{border:1px solid #e8e8e4;border-radius:4px;padding:8px 12px;font-size:14px;
+font-family:'DM Sans',sans-serif}
+.form-control:focus{border-color:#37352f;box-shadow:none}
+.btn-dark{background:#37352f;border:none;border-radius:4px;padding:8px 14px;font-size:14px;
+font-weight:500;font-family:'DM Sans',sans-serif}
+.btn-dark:hover{background:#2c2b28}
+</style></head><body>
+<div class="login-card">
+<div style="text-align:center;margin-bottom:32px">
+<div class="brand-icon">S</div>
+<h2 style="font-weight:700;margin-top:12px">SGA</h2>
+<p style="color:#73726e;font-size:14px">Systeme de Gestion Academique</p>
+</div>
+<form method="POST" action="/auth/login">
+<input name="email" type="email" placeholder="Email" class="form-control mb-3" required>
+<input name="password" type="password" placeholder="Mot de passe" class="form-control mb-3" required>
+<button type="submit" class="btn btn-dark w-100 mb-3">Se connecter</button>
+</form></div></body></html>"""
+
+
 # Route de login (formulaire POST classique)
 @server.route("/auth/login", methods=["POST"])
 def auth_login():
