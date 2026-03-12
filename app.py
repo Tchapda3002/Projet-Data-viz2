@@ -7,8 +7,17 @@ from database import engine, Base
 
 # Creation des tables si elles n'existent pas
 import models
+from sqlalchemy import text
 try:
     Base.metadata.create_all(bind=engine)
+    # Migration : ajouter teacher_id a users si manquant
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN teacher_id INTEGER REFERENCES teachers(id)"))
+            conn.commit()
+            print("Migration: colonne teacher_id ajoutee a users.")
+        except Exception:
+            conn.rollback()  # colonne existe deja
     print("Connexion a la base de donnees reussie.")
 except Exception as e:
     print(f"Erreur de connexion a la base: {e}")
