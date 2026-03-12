@@ -164,11 +164,12 @@ def serve_layout():
     logged_in = flask_session.get("user_id") is not None
 
     if not logged_in:
+        # Flask before_request redirige vers /login, mais au cas ou :
         return html.Div([
             dcc.Location(id="url", refresh=True),
             dcc.Store(id="user-role", data=None),
             dcc.Store(id="user-teacher-id", data=None),
-            dash.page_container,
+            html.P("Chargement..."),
         ])
 
     user_name = flask_session.get("user_nom", "Utilisateur")
