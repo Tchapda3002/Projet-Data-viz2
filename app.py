@@ -7,7 +7,10 @@ from database import engine, Base
 
 # Creation des tables si elles n'existent pas
 import models
+import bcrypt
 from sqlalchemy import text
+from database import SessionLocal
+from models import User
 try:
     Base.metadata.create_all(bind=engine)
     # Migration : ajouter teacher_id a users si manquant
@@ -18,6 +21,20 @@ try:
             print("Migration: colonne teacher_id ajoutee a users.")
         except Exception:
             conn.rollback()  # colonne existe deja
+    # Creer le compte admin s'il n'existe pas
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter_by(email="admin@sga.sn").first()
+        if not admin:
+            hashed = bcrypt.hashpw("admin123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            db.add(User(email="admin@sga.sn", nom="Admin", prenom="SGA",
+                        password_hash=hashed, role="admin"))
+            db.commit()
+            print("Compte admin cree: admin@sga.sn / admin123")
+        else:
+            print("Compte admin existe deja.")
+    finally:
+        db.close()
     print("Connexion a la base de donnees reussie.")
 except Exception as e:
     print(f"Erreur de connexion a la base: {e}")
