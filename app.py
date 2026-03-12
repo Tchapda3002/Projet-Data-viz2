@@ -21,9 +21,11 @@ try:
             print("Migration: colonne teacher_id ajoutee a users.")
         except Exception:
             conn.rollback()  # colonne existe deja
-    # Creer le compte admin s'il n'existe pas
+    # Creer les comptes par defaut s'ils n'existent pas
+    from models import Teacher
     db = SessionLocal()
     try:
+        # Compte admin
         admin = db.query(User).filter_by(email="admin@sga.sn").first()
         if not admin:
             hashed = bcrypt.hashpw("admin123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -31,8 +33,22 @@ try:
                         password_hash=hashed, role="admin"))
             db.commit()
             print("Compte admin cree: admin@sga.sn / admin123")
-        else:
-            print("Compte admin existe deja.")
+        # Comptes enseignants (un compte par enseignant)
+        teachers = db.query(Teacher).all()
+        pwd_hash = bcrypt.hashpw("enseignant123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        count = 0
+        for t in teachers:
+            email = t.email
+            if not email:
+                continue
+            exists = db.query(User).filter_by(email=email).first()
+            if not exists:
+                db.add(User(email=email, nom=t.nom, prenom=t.prenom,
+                            password_hash=pwd_hash, role="enseignant", teacher_id=t.id))
+                count += 1
+        if count:
+            db.commit()
+            print(f"{count} comptes enseignants crees (mdp: enseignant123)")
     finally:
         db.close()
     print("Connexion a la base de donnees reussie.")
